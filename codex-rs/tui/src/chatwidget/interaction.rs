@@ -96,6 +96,9 @@ impl ChatWidget {
         key_event: KeyEvent,
         activation_key: Option<crate::key_hint::KeyBinding>,
     ) -> KeyEventAction {
+        if key_event.kind != KeyEventKind::Release {
+            self.cancel_auto_retry();
+        }
         if self.handle_quick_dial_menu(key_event) {
             return KeyEventAction::None;
         }
@@ -541,6 +544,7 @@ impl ChatWidget {
     }
 
     pub(crate) fn handle_paste(&mut self, text: String) {
+        self.cancel_auto_retry();
         self.cancel_quick_dial_menu();
         if self.external_writer_view && !self.bottom_pane.has_active_view() {
             return;

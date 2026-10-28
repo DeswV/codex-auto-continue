@@ -45,7 +45,7 @@ pub(crate) fn server_version_notice_kind(
 
 #[cfg(any(not(debug_assertions), test))]
 fn parse_version(v: &str) -> Option<(u64, u64, u64)> {
-    let mut iter = v.trim().split('.');
+    let mut iter = v.trim().split('+').next()?.split('.');
     let maj = iter.next()?.parse::<u64>().ok()?;
     let min = iter.next()?.parse::<u64>().ok()?;
     let pat = iter.next()?.parse::<u64>().ok()?;
@@ -56,6 +56,12 @@ fn parse_version(v: &str) -> Option<(u64, u64, u64)> {
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
+
+    #[test]
+    fn custom_build_compares_official_version() {
+        assert_eq!(is_newer("0.165.0", "0.164.0+auto_continue"), Some(true));
+        assert_eq!(is_newer("0.164.0", "0.164.0+auto_continue"), Some(false));
+    }
 
     #[test]
     fn extracts_version_from_latest_tag() {

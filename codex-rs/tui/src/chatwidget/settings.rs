@@ -683,6 +683,9 @@ impl ChatWidget {
         {
             self.turn_lifecycle.mark_budget_limited(turn_id);
         }
+        if goal.status == AppThreadGoalStatus::Active {
+            self.auto_retry.goal = true;
+        }
         self.current_goal_status = Some(GoalStatusState::new(goal, Instant::now()));
         self.update_collaboration_mode_indicator();
     }

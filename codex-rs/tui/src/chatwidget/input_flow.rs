@@ -242,7 +242,8 @@ impl ChatWidget {
 
     /// If idle and there are queued inputs, submit exactly one to start the next turn.
     pub(crate) fn maybe_send_next_queued_input(&mut self) -> bool {
-        if !self.is_session_configured()
+        if self.auto_retry.pending.is_some()
+            || !self.is_session_configured()
             || self.fork_in_progress
             || self.has_misalignment_policy_violation()
             || self.input_queue.submissions_paused()

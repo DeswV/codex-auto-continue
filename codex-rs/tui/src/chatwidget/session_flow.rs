@@ -108,6 +108,8 @@ impl ChatWidget {
         self.clear_safety_buffering();
         self.thread_name = session.thread_name.clone();
         self.current_goal_status_indicator = None;
+        self.cancel_auto_retry();
+        self.auto_retry = Default::default();
         self.current_goal_status = None;
         self.update_collaboration_mode_indicator();
         self.forked_from = session.forked_from_id;

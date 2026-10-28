@@ -42,7 +42,7 @@ impl HistoryCell for UpdateAvailableHistoryCell {
                 "https://github.com/openai/codex"
                     .fg(accent_color())
                     .underlined(),
-                " for installation options."
+                " for official releases. Custom build: rebuild auto_continue to update."
             ]
         };
 
@@ -73,7 +73,7 @@ impl HistoryCell for UpdateAvailableHistoryCell {
         let update_instruction = if let Some(update_action) = self.update_action {
             format!("Run {} to update.", update_action.command_str())
         } else {
-            "See https://github.com/openai/codex for installation options.".to_string()
+            "See https://github.com/openai/codex for official releases. Custom build: rebuild auto_continue to update.".to_string()
         };
         vec![
             Line::from("Update available!"),
