@@ -250,6 +250,7 @@ impl ChatWidget {
                     vec!["✓ ".green(), notification.message.into()].into(),
                 ]);
             }
+            ServerNotification::AutoRetry(notification) => self.on_auto_retry(notification),
             ServerNotification::Warning(notification) => {
                 if self.warning_display_state.startup_complete {
                     self.on_warning(notification.message);

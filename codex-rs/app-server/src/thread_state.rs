@@ -102,6 +102,7 @@ pub(crate) struct TurnSummary {
 
 #[derive(Default)]
 pub(crate) struct ThreadState {
+    pub(crate) auto_retry: crate::auto_retry::AutoRetry,
     goal_resume_lock: Arc<Mutex<()>>,
     pub(crate) pending_interrupts: PendingInterruptQueue,
     pub(crate) turn_summary: TurnSummary,

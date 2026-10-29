@@ -1058,6 +1058,11 @@ impl App {
                     }
                 }
             },
+            AppEvent::CancelAutoRetry { thread_id, turn_id } => {
+                if let Err(error) = app_server.turn_interrupt(thread_id, turn_id).await {
+                    self.chat_widget.add_error_message(format!("Failed to cancel automatic retry: {error}"));
+                }
+            }
             AppEvent::Logout => match app_server.logout_account().await {
                 Ok(()) => {
                     self.show_shutdown_feedback(tui)?;

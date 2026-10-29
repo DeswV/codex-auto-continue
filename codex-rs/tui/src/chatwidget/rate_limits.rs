@@ -257,18 +257,6 @@ impl ChatWidget {
         let usage_notice_blocked = self.codex_rate_limit_reached_type.is_some()
             || self.codex_spend_control_reached == Some(true);
         if let Some(mut snapshot) = snapshot {
-            if snapshot
-                .limit_id
-                .as_deref()
-                .is_none_or(|id| id.eq_ignore_ascii_case("codex"))
-            {
-                self.auto_retry.reset = snapshot
-                    .primary
-                    .iter()
-                    .chain(snapshot.secondary.iter())
-                    .find(|w| w.window_duration_mins == Some(300) && w.used_percent >= 100)
-                    .and_then(|w| w.resets_at);
-            }
             let limit_id = snapshot
                 .limit_id
                 .clone()

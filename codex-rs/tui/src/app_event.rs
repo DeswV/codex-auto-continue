@@ -295,6 +295,10 @@ pub(crate) struct AgentPickerThreadRefresh {
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, IntoStaticStr)]
 pub(crate) enum AppEvent {
+    CancelAutoRetry {
+        thread_id: codex_protocol::ThreadId,
+        turn_id: String,
+    },
     AccountEmailLoaded {
         request_id: uuid::Uuid,
         email: Option<String>,

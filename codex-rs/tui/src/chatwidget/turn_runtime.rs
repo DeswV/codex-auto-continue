@@ -75,10 +75,7 @@ impl ChatWidget {
     // Raw reasoning uses the same flow as summarized reasoning
 
     pub(super) fn on_task_started(&mut self) {
-        self.auto_retry.goal = self
-            .current_goal_status
-            .as_ref()
-            .is_some_and(|g| g.is_active());
+        self.clear_auto_retry();
         self.status_state.program_status_after_turn =
             crate::terminal_program_status::ProgramStatus::Idle;
         self.bottom_pane.dismiss_composer_sparkle();
@@ -382,7 +379,6 @@ impl ChatWidget {
     }
 
     pub(super) fn on_server_overloaded_error(&mut self, message: String) {
-        self.schedule_auto_retry(&message);
         self.input_queue.submit_pending_steers_after_interrupt = false;
         self.finalize_turn();
 
@@ -398,7 +394,6 @@ impl ChatWidget {
     }
 
     fn on_error(&mut self, message: String) {
-        self.schedule_auto_retry(&message);
         self.input_queue.submit_pending_steers_after_interrupt = false;
         self.finalize_turn();
         self.add_to_history(history_cell::new_error_event(message));
@@ -468,9 +463,6 @@ impl ChatWidget {
     }
 
     pub(super) fn on_rate_limit_error(&mut self, error_kind: RateLimitErrorKind, message: String) {
-        if matches!(error_kind, RateLimitErrorKind::UsageLimit) {
-            self.schedule_auto_retry("usage limit");
-        }
         self.invalidate_ordinary_usage_recovery();
         // on_error can drain queued input, before the asynchronous recovery read completes.
         self.input_queue.rate_limit_recovery_pending = self.has_chatgpt_account;

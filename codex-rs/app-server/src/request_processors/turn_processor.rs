@@ -83,6 +83,7 @@ fn validate_response_item_image_urls(items: &[ResponseItem]) -> Result<(), JSONR
 #[derive(Clone)]
 pub(crate) struct TurnRequestProcessor {
     agent_runner: AgentRunner,
+    goal_service: Arc<codex_goal_extension::GoalService>,
     auth_manager: Arc<AuthManager>,
     thread_manager: Arc<ThreadManager>,
     outgoing: Arc<OutgoingMessageSender>,
@@ -145,6 +146,7 @@ struct ThreadSettingsBuildParams {
 impl TurnRequestProcessor {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
+        goal_service: Arc<codex_goal_extension::GoalService>,
         auth_manager: Arc<AuthManager>,
         thread_manager: Arc<ThreadManager>,
         outgoing: Arc<OutgoingMessageSender>,
@@ -160,6 +162,7 @@ impl TurnRequestProcessor {
         let agent_runner = AgentRunner::new(Arc::downgrade(&thread_manager));
         Self {
             agent_runner,
+            goal_service,
             auth_manager,
             thread_manager,
             outgoing,
@@ -181,6 +184,9 @@ impl TurnRequestProcessor {
         app_server_client_name: Option<String>,
         app_server_client_version: Option<String>,
     ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
+        if let Ok(id) = ThreadId::from_string(&params.thread_id) {
+            crate::auto_retry::cancel(id, "", &self.thread_state_manager, &self.outgoing).await;
+        }
         validate_user_input_image_urls(&params.input)?;
         self.turn_start_inner(
             request_id,
@@ -1629,6 +1635,17 @@ impl TurnRequestProcessor {
 
         let (thread_uuid, thread) = self.load_thread(&thread_id).await?;
 
+        if crate::auto_retry::cancel(
+            thread_uuid,
+            &turn_id,
+            &self.thread_state_manager,
+            &self.outgoing,
+        )
+        .await
+        {
+            return Ok(Some(TurnInterruptResponse {}));
+        }
+
         // Record turn interrupts so we can reply when TurnAborted arrives. Startup
         // interrupts do not have a turn and are acknowledged after submission.
         if !is_startup_interrupt {
@@ -1685,6 +1702,7 @@ impl TurnRequestProcessor {
 
     fn listener_task_context(&self) -> ListenerTaskContext {
         ListenerTaskContext {
+            goal_service: Arc::clone(&self.goal_service),
             thread_manager: Arc::clone(&self.thread_manager),
             thread_state_manager: self.thread_state_manager.clone(),
             outgoing: Arc::clone(&self.outgoing),

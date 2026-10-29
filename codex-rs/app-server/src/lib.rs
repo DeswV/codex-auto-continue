@@ -100,6 +100,7 @@ mod app_info;
 mod app_server_tracing;
 mod attestation;
 mod auth_mode;
+mod auto_retry;
 mod bespoke_event_handling;
 mod code_mode_host;
 mod codex_home_metrics;

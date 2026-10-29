@@ -9,6 +9,7 @@ use codex_protocol::protocol::SessionSource;
 
 #[derive(Clone)]
 pub(super) struct ListenerTaskContext {
+    pub(super) goal_service: Arc<codex_goal_extension::GoalService>,
     pub(super) thread_manager: Arc<ThreadManager>,
     pub(super) thread_state_manager: ThreadStateManager,
     pub(super) outgoing: Arc<OutgoingMessageSender>,
@@ -235,6 +236,9 @@ pub(super) async fn ensure_listener_task_running(
     conversation: Arc<CodexThread>,
     thread_state: Arc<Mutex<ThreadState>>,
 ) -> Result<(), JSONRPCErrorError> {
+    if thread_state.lock().await.listener_matches(&conversation) {
+        return Ok(());
+    }
     let (cancel_tx, mut cancel_rx) = oneshot::channel();
     let config_snapshot = conversation.config_snapshot().await;
     let config = conversation.config().await;
@@ -258,6 +262,19 @@ pub(super) async fn ensure_listener_task_running(
             &environments,
         )
         .await;
+    let recovery_allowed = !matches!(config_snapshot.session_source, SessionSource::SubAgent(_));
+    if let Some(db) = conversation.state_db()
+        && let Ok(Some(goal)) = listener_task_context
+            .goal_service
+            .get_thread_goal(&db, conversation_id)
+            .await
+    {
+        thread_state
+            .lock()
+            .await
+            .auto_retry
+            .seed_goal(goal.status == codex_protocol::protocol::ThreadGoalStatus::Active);
+    }
     let is_v2_child = conversation.multi_agent_version() == Some(MultiAgentVersion::V2)
         && matches!(config_snapshot.session_source, SessionSource::SubAgent(_));
     let thread_settings_baseline = thread_settings_from_config_snapshot(&config_snapshot);
@@ -284,6 +301,7 @@ pub(super) async fn ensure_listener_task_running(
         (listener_command_rx, listener_generation)
     };
     let ListenerTaskContext {
+        goal_service,
         outgoing,
         thread_manager,
         thread_state_manager,
@@ -296,6 +314,7 @@ pub(super) async fn ensure_listener_task_running(
     let outgoing_for_task = Arc::clone(&outgoing);
     tokio::spawn(async move {
         loop {
+            let retry_delay = thread_state.lock().await.auto_retry.tick_delay();
             tokio::select! {
                 biased;
                 _ = &mut cancel_rx => {
@@ -306,6 +325,16 @@ pub(super) async fn ensure_listener_task_running(
                     let Some(listener_command) = listener_command else {
                         break;
                     };
+                    match &listener_command {
+                        ThreadListenerCommand::EmitThreadGoalUpdated { goal, turn_id } => {
+                            thread_state.lock().await.auto_retry.observe_goal(goal.status == codex_app_server_protocol::ThreadGoalStatus::Active, turn_id.as_deref());
+                        }
+                        ThreadListenerCommand::EmitThreadGoalCleared => {
+                            let mut state = thread_state.lock().await;
+                            state.auto_retry.seed_goal(false);
+                        }
+                        _ => {}
+                    }
                     handle_thread_listener_command(
                         conversation_id,
                         &conversation,
@@ -342,6 +371,7 @@ pub(super) async fn ensure_listener_task_running(
                     // synchronized with the conversation.
                     let (raw_events_enabled, terminal_summary) = {
                         let mut thread_state = thread_state.lock().await;
+                        if recovery_allowed { thread_state.auto_retry.observe(&event.id, &event.msg); }
                         thread_state.track_current_turn_event(&event.id, &event.msg);
                         let terminal = matches!(event.msg, EventMsg::TurnComplete(_) | EventMsg::TurnAborted(_))
                             .then(|| thread_state.turn_summary.clone());
@@ -375,6 +405,9 @@ pub(super) async fn ensure_listener_task_running(
                             &outgoing_for_task, conversation_id,
                         ).await;
                     }
+                    if matches!(event.msg, EventMsg::Error(_)) {
+                        crate::auto_retry::tick(conversation_id, &conversation, &thread_state, &goal_service, &thread_state_manager, &outgoing_for_task).await;
+                    }
                     let is_shutdown_complete = matches!(event.msg, EventMsg::ShutdownComplete);
                     apply_bespoke_event_handling(
                         event,
@@ -395,14 +428,17 @@ pub(super) async fn ensure_listener_task_running(
                         let _ = completion_tx.send(());
                     }
                 }
-                unloading_watchers_open = unloading_state.wait_for_unloading_trigger() => {
+                _ = crate::auto_retry::wait(retry_delay) => {
+                    crate::auto_retry::tick(conversation_id, &conversation, &thread_state, &goal_service, &thread_state_manager, &outgoing_for_task).await;
+                }
+                unloading_watchers_open = unloading_state.wait_for_unloading_trigger(), if retry_delay.is_none() => {
                     if !unloading_watchers_open {
                         break;
                     }
                     if !unloading_state.should_unload_now() {
                         continue;
                     }
-                    if matches!(conversation.agent_status().await, AgentStatus::Running) {
+                    if thread_state.lock().await.auto_retry.is_pending() || matches!(conversation.agent_status().await, AgentStatus::Running) {
                         unloading_state.note_thread_activity_observed();
                         continue;
                     }

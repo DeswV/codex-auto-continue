@@ -8,6 +8,20 @@ use serde::Serialize;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export_to = "v2/")]
+pub struct AutoRetryNotification {
+    pub thread_id: String,
+    /// Failed turn whose continuation is scheduled; also the cancellation target.
+    pub turn_id: String,
+    /// Unix timestamp in milliseconds. Null clears the displayed wait.
+    #[ts(type = "number | null")]
+    pub retry_at: Option<i64>,
+    /// English status label for the countdown.
+    pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export_to = "v2/")]
 pub struct AuthRecoveryNotification {
     pub thread_id: String,
     pub turn_id: String,

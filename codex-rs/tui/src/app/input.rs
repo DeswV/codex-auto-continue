@@ -69,6 +69,12 @@ impl App {
         tui: &mut tui::Tui,
         key_event: KeyEvent,
     ) -> Option<KeyEvent> {
+        if self.chat_widget.handle_auto_retry_detach_key(key_event) {
+            return None;
+        }
+        if key_event.kind != KeyEventKind::Release {
+            self.chat_widget.cancel_auto_retry();
+        }
         self.routed_key_activation = None;
         if self.chat_widget.take_key_chord_reset() {
             self.cancel_pending_key_chord();
@@ -390,6 +396,9 @@ impl App {
         app_server: &mut AppServerSession,
         key_event: KeyEvent,
     ) {
+        if self.chat_widget.handle_auto_retry_detach_key(key_event) {
+            return;
+        }
         let activation_key = self.routed_key_activation.take();
         if self.chat_widget.fork_in_progress {
             return;

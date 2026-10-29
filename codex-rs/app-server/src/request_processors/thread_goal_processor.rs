@@ -29,7 +29,7 @@ pub(crate) struct ThreadGoalRequestProcessor {
     config: Arc<Config>,
     thread_state_manager: ThreadStateManager,
     state_db: Option<StateDbHandle>,
-    goal_service: Arc<GoalService>,
+    pub(super) goal_service: Arc<GoalService>,
     config_manager: ConfigManager,
     writer_locks: Arc<WriterLockCoordinator>,
 }
@@ -140,6 +140,7 @@ impl ThreadGoalRequestProcessor {
         }
 
         let thread_id = parse_thread_id_for_request(params.thread_id.as_str())?;
+        crate::auto_retry::cancel(thread_id, "", &self.thread_state_manager, &self.outgoing).await;
         let _goal_resume_guard = self.thread_state_manager.lock_goal_resume(thread_id).await;
         let state_db = self
             .state_db_for_materialized_thread(thread_id, GoalAccess::Mutate)
@@ -282,6 +283,7 @@ impl ThreadGoalRequestProcessor {
         }
 
         let thread_id = parse_thread_id_for_request(params.thread_id.as_str())?;
+        crate::auto_retry::cancel(thread_id, "", &self.thread_state_manager, &self.outgoing).await;
         let _goal_resume_guard = self.thread_state_manager.lock_goal_resume(thread_id).await;
         let state_db = self
             .state_db_for_materialized_thread(thread_id, GoalAccess::Mutate)

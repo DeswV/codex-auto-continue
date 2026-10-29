@@ -1,6 +1,6 @@
 # Codex Auto Continue
 
-基于 [OpenAI Codex](https://github.com/openai/codex) 的自定义版本，在交互式终端界面（TUI）中等待额度恢复或暂时性模型错误，并自动继续被中断的任务。当前基于官方 `0.164.0`，CLI 和 TUI 显示版本为 `0.164.0+auto_continue`。
+基于 [OpenAI Codex](https://github.com/openai/codex) 的自定义版本，由本地后台服务器等待额度恢复或暂时性模型错误，并自动继续被中断的任务；TUI 负责显示状态和交互。当前基于官方 `0.165.0`，CLI 和 TUI 显示版本为 `0.165.0+auto_continue`。
 
 ## 相对官方版本的新增特性
 
@@ -29,12 +29,14 @@
 5h usage limit reached. Automatically continuing in 1 h 23 m 45 s. Type to cancel.
 ```
 
-- 按键或粘贴会立即取消等待、移除状态提示，并正常处理用户输入。
-- 输入框已有草稿时不启动等待，避免干扰正在编辑的消息。
-- 等待期间不会自动发送排队消息；切换会话会清除原会话的等待状态。
+- 普通按键或粘贴会取消服务器上的等待、移除状态提示，并正常处理用户输入。
+- 等待时按 **Ctrl+B** 只退出 TUI，不发送取消或关闭线程请求；后台服务器继续等待并自动续跑。
+- TUI 收到等待状态时，如果输入框已有草稿，会请求取消服务器等待，避免干扰正在编辑的消息。
+- 等待期间 TUI 不会自动发送排队消息；切换会话只清除本地显示，不取消原会话的后台等待。
+- 没有 TUI 连接时，服务器仍持有计时器并保留等待中的线程。重新连接该线程后，TUI 会显示服务器原有截止时间的倒计时，不会重新计时或重复续跑。
 - 等待结束后自动发送 `Continue`；如果被中断的回合正在追求 goal，则执行 `/goal resume`。
 
-这些行为集成在 TUI 中，不需要外部守护脚本，也无需修改现有 Codex 配置。非交互式 `codex exec` 不包含上述 TUI 等待流程。
+重试逻辑运行在 app-server 中，不依赖 TUI 存活，也不需要外部重试脚本。后台模式要求本地 background server 正在运行且也使用本 fork 的新构建；仅更新前端不能给旧服务器增加此功能。停止服务器会结束内存中的等待，当前不跨服务器重启持久化计时器。非交互式 `codex exec` 不走 app-server 的等待流程。
 
 ### 自定义版本号与更新提示
 
@@ -82,7 +84,7 @@ cargo build --locked --release -p codex-cli --bin codex
 产物为 `codex-rs/target/release/codex`，当前应输出：
 
 ```text
-codex-cli 0.164.0+auto_continue
+codex-cli 0.165.0+auto_continue
 ```
 
 ### 开发构建
@@ -109,7 +111,17 @@ CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=4 \
   cargo test --locked -p codex-tui --lib update_versions
 ```
 
-测试覆盖退避边界、刷新时间解析、粘贴取消等待和版本比较。它们不代替真实额度耗尽场景的端到端验证。
+后台测试：
+
+```bash
+CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=4 \
+  cargo test --locked -p codex-app-server --lib auto_retry
+
+CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=4 \
+  cargo test --locked -p codex-app-server --test all auto_retry
+```
+
+测试覆盖退避边界、刷新时间解析、无客户端续跑、重连恢复倒计时、取消等待、Ctrl+B 退出以及版本比较。它们不代替真实额度耗尽场景的端到端验证。
 
 ## 安装编译产物
 

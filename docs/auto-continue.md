@@ -5,7 +5,7 @@ The CLI and TUI display the upstream package version followed by
 existing startup-update preference); the update notice provides no installer
 command or update action. Rebuild this fork to adopt an upstream release.
 
-After a terminal model capability error, the TUI samples a full-jitter delay
+After a terminal model capability error, the app-server samples a full-jitter delay
 starting with [0, 0.5) seconds. A recurrence within 64 seconds of completing
 the wait doubles the sampling interval. A recurrence after an actual wait
 longer than 64 seconds stops retries. After more than 64 seconds without a
@@ -16,11 +16,18 @@ from account usage. It can also parse the server's local-time `try again at`
 message when no snapshot timestamp is available. Unparseable reset times do
 not start a timer.
 
-During a wait, the empty composer shows an English countdown. A key press or
+During a wait, the empty composer shows an English countdown. A normal key press or
 paste cancels the wait, restores the normal placeholder, and processes the
-input normally. Existing drafts prevent a timer from starting. Switching
-threads clears pending recovery. Queued messages do not bypass the wait.
+input normally. Existing drafts cause the TUI to request cancellation. Switching
+threads only clears the local display. Ctrl+B exits the TUI without cancelling
+recovery. Reconnecting receives the original server deadline. TUI queued
+messages do not bypass the wait.
 
-When the timer expires, the TUI submits `Continue`, or dispatches `/goal resume`
+When the timer expires, the app-server submits an internal continuation containing `Continue`, or applies the goal-resume operation equivalent to `/goal resume`
 if a goal was active during the interrupted turn. No configuration changes or
 external wrapper processes are required.
+
+The app-server listener owns the timer even with zero subscribed clients and
+keeps waiting threads loaded. The server must run this custom build. Timers
+are held in memory and do not survive server shutdown. The TUI never owns
+a second timer that can submit work.

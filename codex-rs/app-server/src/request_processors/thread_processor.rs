@@ -1141,6 +1141,7 @@ impl ThreadRequestProcessor {
 
     fn listener_task_context(&self) -> ListenerTaskContext {
         ListenerTaskContext {
+            goal_service: Arc::clone(&self.thread_goal_processor.goal_service),
             thread_manager: Arc::clone(&self.thread_manager),
             thread_state_manager: self.thread_state_manager.clone(),
             outgoing: Arc::clone(&self.outgoing),
@@ -1271,6 +1272,7 @@ impl ThreadRequestProcessor {
         );
         typesafe_overrides.ephemeral = ephemeral;
         let listener_task_context = ListenerTaskContext {
+            goal_service: Arc::clone(&self.thread_goal_processor.goal_service),
             thread_manager: Arc::clone(&self.thread_manager),
             thread_state_manager: self.thread_state_manager.clone(),
             outgoing: Arc::clone(&self.outgoing),
