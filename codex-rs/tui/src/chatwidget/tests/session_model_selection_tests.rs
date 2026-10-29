@@ -170,6 +170,7 @@ async fn provider_switch_model_command_accepts_registered_provider_qualified_mod
     chat.config
         .model_providers
         .insert("third_party".into(), provider);
+    chat.model_catalog = std::sync::Arc::new(ModelCatalog::new(vec![]));
     while events.try_recv().is_ok() {}
     chat.handle_model_command_args("third_party::vendor/new-model");
     let selected = std::iter::from_fn(|| events.try_recv().ok())

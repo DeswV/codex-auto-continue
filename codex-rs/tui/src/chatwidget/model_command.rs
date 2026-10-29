@@ -143,23 +143,21 @@ fn resolve_model_command(chat: &ChatWidget, args: &str) -> Result<ModelCommand, 
     let known = chat.model_catalog.models.iter().find(|model| {
         model.model == bare_model && (qualified || args.model.is_none() || model.show_in_picker)
     });
-    let mut model =
-        if let Some(model) = known {
-            model.clone()
-        } else if qualified || chat.config.model_provider_id != "openai" {
-            let mut model =
-                chat.model_catalog.models.first().cloned().ok_or_else(|| {
-                    "Model catalog is still loading; try again shortly.".to_string()
-                })?;
-            model.default_reasoning_effort = ReasoningEffort::None;
-            model.supported_reasoning_efforts.clear();
-            model.service_tiers.clear();
-            model
-        } else {
-            return Err(format!(
-                "Model '{model_name}' is unavailable. Use /model to see available models."
-            ));
-        };
+    let mut model = if let Some(model) = known {
+        model.clone()
+    } else if qualified || chat.config.model_provider_id != "openai" {
+        let mut model = ModelPreset::from(codex_models_manager::model_info::model_info_from_slug(
+            &bare_model,
+        ));
+        model.default_reasoning_effort = ReasoningEffort::None;
+        model.supported_reasoning_efforts.clear();
+        model.service_tiers.clear();
+        model
+    } else {
+        return Err(format!(
+            "Model '{model_name}' is unavailable. Use /model to see available models."
+        ));
+    };
     model.model = model_name;
     Ok(ModelCommand {
         model: model.model.clone(),

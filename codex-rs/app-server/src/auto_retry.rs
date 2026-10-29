@@ -179,7 +179,9 @@ pub(crate) async fn cancel(
     manager: &ThreadStateManager,
     outgoing: &Arc<OutgoingMessageSender>,
 ) -> bool {
-    let state = manager.thread_state(id).await;
+    let Some(state) = manager.existing_thread_state(id).await else {
+        return false;
+    };
     let notification = {
         let mut state = state.lock().await;
         let notification = state.auto_retry.notification(id);

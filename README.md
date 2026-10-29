@@ -195,7 +195,14 @@ CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=4 \
   cargo test --locked -p codex-app-server --test all auto_retry
 ```
 
-测试覆盖退避边界、刷新时间解析、无客户端续跑、重连恢复倒计时、取消等待、Ctrl+B 退出以及版本比较。它们不代替真实额度耗尽场景的端到端验证。
+多服务商集成测试（使用本地模拟 API，不使用真实订阅或 API 额度）：
+
+```bash
+CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=4 \
+  cargo test --locked -p codex-app-server --test all provider_switch
+```
+
+测试覆盖退避边界、刷新时间解析、无客户端续跑、重连恢复倒计时、取消等待、Ctrl+B 退出、版本比较、同线程跨服务商切换，以及主子代理混用服务商时的请求和认证隔离。它们不代替真实额度耗尽场景的端到端验证。
 
 ## 安装编译产物
 

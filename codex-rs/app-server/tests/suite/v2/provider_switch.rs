@@ -1,19 +1,45 @@
 //! Subscription credentials and provider API keys coexist within one thread.
 use anyhow::Result;
-use app_test_support::{
-    ChatGptAuthFixture, MockResponsesConfig, TestAppServer, write_chatgpt_auth,
-};
+use app_test_support::{ChatGptAuthFixture, TestAppServer, write_chatgpt_auth};
 use codex_app_server_protocol::{
     ClientRequest, ThreadStartParams, TurnCompletedNotification, TurnStartParams,
     TurnStartResponse, TurnStatus, UserInput,
 };
 use codex_config::types::AuthCredentialsStoreMode;
-use codex_features::Feature;
 use core_test_support::responses;
 use tempfile::TempDir;
 use tokio::time::{Duration, timeout};
 use wiremock::matchers::{method, path_regex};
 use wiremock::{Mock, ResponseTemplate};
+
+fn write_config(home: &std::path::Path, official: &str, custom: &str) -> Result<()> {
+    std::fs::write(
+        home.join("config.toml"),
+        format!(
+            r#"
+model = "gpt-5.4"
+model_provider = "openai"
+approval_policy = "never"
+sandbox_mode = "read-only"
+openai_base_url = "{official}/v1"
+chatgpt_base_url = "{official}/backend-api"
+[features]
+enable_request_compression = false
+multi_agent_v2 = true
+[model_providers.third_party]
+name = "Third party"
+base_url = "{custom}/v1"
+wire_api = "responses"
+experimental_bearer_token = "third-party-test-key"
+requires_openai_auth = false
+supports_websockets = false
+[multi_agent_v2]
+expose_spawn_agent_model_overrides = true
+"#
+        ),
+    )?;
+    Ok(())
+}
 
 async fn turn(app: &mut TestAppServer, id: &str, model: &str, text: &str) -> Result<()> {
     let _: TurnStartResponse = app
@@ -80,29 +106,7 @@ async fn provider_switch_subscription_to_api_and_back_preserves_history_and_auth
             .plan_type("pro"),
         AuthCredentialsStoreMode::File,
     )?;
-    MockResponsesConfig::new(&official.uri())
-        .with_model_provider("openai")
-        .with_provider_name("OpenAI")
-        .with_model("gpt-5.4")
-        .disable_feature(Feature::EnableRequestCompression)
-        .with_root_config(&format!(
-            "chatgpt_base_url = \"{}/backend-api\"",
-            official.uri()
-        ))
-        .with_provider_config("supports_websockets = false\nrequires_openai_auth = true")
-        .with_extra_config(&format!(
-            r#"
-[model_providers.third_party]
-name = "Third party"
-base_url = "{}/v1"
-wire_api = "responses"
-experimental_bearer_token = "third-party-test-key"
-requires_openai_auth = false
-supports_websockets = false
-"#,
-            custom.uri()
-        ))
-        .write(home.path())?;
+    write_config(home.path(), &official.uri(), &custom.uri())?;
     let mut app = TestAppServer::builder()
         .with_codex_home(home.path())
         .without_managed_config()
@@ -234,32 +238,7 @@ async fn provider_switch_parent_and_child_use_independent_providers(reverse: boo
             .plan_type("plus"),
         AuthCredentialsStoreMode::File,
     )?;
-    MockResponsesConfig::new(&official.uri())
-        .with_model_provider("openai")
-        .with_provider_name("OpenAI")
-        .with_model("gpt-5.4")
-        .disable_feature(Feature::EnableRequestCompression)
-        .enable_feature(Feature::MultiAgentV2)
-        .with_root_config(&format!(
-            "chatgpt_base_url = \"{}/backend-api\"",
-            official.uri()
-        ))
-        .with_provider_config("supports_websockets = false\nrequires_openai_auth = true")
-        .with_extra_config(&format!(
-            r#"
-[model_providers.third_party]
-name = "Third party"
-base_url = "{}/v1"
-wire_api = "responses"
-experimental_bearer_token = "third-party-test-key"
-requires_openai_auth = false
-supports_websockets = false
-[multi_agent_v2]
-expose_spawn_agent_model_overrides = true
-"#,
-            custom.uri()
-        ))
-        .write(home.path())?;
+    write_config(home.path(), &official.uri(), &custom.uri())?;
     let mut app = TestAppServer::builder()
         .with_codex_home(home.path())
         .without_managed_config()

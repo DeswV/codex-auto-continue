@@ -443,6 +443,18 @@ impl ThreadStateManager {
             .unwrap_or_default()
     }
 
+    pub(crate) async fn existing_thread_state(
+        &self,
+        thread_id: ThreadId,
+    ) -> Option<Arc<Mutex<ThreadState>>> {
+        self.state
+            .lock()
+            .await
+            .threads
+            .get(&thread_id)
+            .map(|entry| entry.state.clone())
+    }
+
     pub(crate) async fn thread_state(&self, thread_id: ThreadId) -> Arc<Mutex<ThreadState>> {
         let mut state = self.state.lock().await;
         state.threads.entry(thread_id).or_default().state.clone()
