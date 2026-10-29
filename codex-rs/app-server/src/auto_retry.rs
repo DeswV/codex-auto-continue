@@ -141,7 +141,13 @@ impl AutoRetry {
                     };
                     self.ceiling = ceiling;
                     Duration::from_secs_f64(rand::random::<f64>() * ceiling)
-                } else if message.contains("usage limit") || message.contains("5h") {
+                } else if message.contains("usage limit")
+                    || message.contains("5h")
+                    || matches!(
+                        e.codex_error_info.as_ref(),
+                        Some(codex_protocol::protocol::CodexErrorInfo::UsageLimitExceeded)
+                    )
+                {
                     let Some(reset) = self.reset.or_else(|| parse_reset(&message)) else {
                         return;
                     };
@@ -463,6 +469,26 @@ mod tests {
         assert!(!state.is_pending());
         state.observe("new-user-turn", &error("model capability error"));
         assert!(!state.pending.as_ref().unwrap().goal);
+    }
+
+    #[test]
+    fn structured_usage_error_uses_exact_five_hour_snapshot() {
+        let mut state = AutoRetry {
+            reset: Some(chrono::Utc::now().timestamp() + 300),
+            ..Default::default()
+        };
+        state.observe(
+            "failed",
+            &EventMsg::Error(ErrorEvent {
+                message: "Quota exceeded".into(),
+                codex_error_info: Some(
+                    codex_protocol::protocol::CodexErrorInfo::UsageLimitExceeded,
+                ),
+                misalignment: None,
+            }),
+        );
+        assert!(state.is_pending());
+        assert!(state.pending.as_ref().unwrap().deadline > Instant::now());
     }
 
     #[test]
