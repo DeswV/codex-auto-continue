@@ -496,7 +496,13 @@ impl ChatWidget {
         self.invalidate_permission_discovery();
         let cwd_changed = self.config.cwd != settings.cwd;
         self.apply_thread_settings_cwd(settings.cwd.clone());
+        if self.config.model_provider_id != settings.model_provider {
+            self.clear_backend_banner();
+        }
         self.config.model_provider_id = settings.model_provider.clone();
+        if let Some(provider) = self.config.model_providers.get(&settings.model_provider) {
+            self.config.model_provider = provider.clone();
+        }
         self.set_service_tier(settings.service_tier.clone());
         if let Err(err) = self
             .config

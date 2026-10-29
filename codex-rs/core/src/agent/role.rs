@@ -37,6 +37,7 @@ const AGENT_TYPE_UNAVAILABLE_ERROR: &str = "agent type is currently not availabl
 struct AgentRoleOverrides {
     developer_instructions: Option<String>,
     model: Option<String>,
+    model_provider: Option<String>,
     model_reasoning_effort: Option<ReasoningEffort>,
     model_reasoning_summary: Option<ReasoningSummary>,
     model_verbosity: Option<Verbosity>,
@@ -80,6 +81,7 @@ async fn apply_role_to_config_inner(
     let mut overrides = AgentRoleOverrides {
         developer_instructions: role_config.developer_instructions,
         model: role_config.model,
+        model_provider: role_config.model_provider,
         model_reasoning_effort: role_config.model_reasoning_effort,
         model_reasoning_summary: role_config.model_reasoning_summary,
         model_verbosity: role_config.model_verbosity,
@@ -181,8 +183,15 @@ mod role_overrides {
     ) -> anyhow::Result<Config> {
         let mut next_config = config.clone();
         next_config.config_layer_stack = build_config_layer_stack(config, &role_layer_toml)?;
+        if let Some(provider) = &overrides.model_provider {
+            next_config
+                .select_model_provider(provider)
+                .map_err(anyhow::Error::msg)?;
+        }
         if let Some(model) = &overrides.model {
-            next_config.model = Some(model.clone());
+            next_config
+                .select_provider_model(model)
+                .map_err(anyhow::Error::msg)?;
         }
         if let Some(instructions) = &overrides.developer_instructions {
             next_config.developer_instructions = Some(instructions.clone());

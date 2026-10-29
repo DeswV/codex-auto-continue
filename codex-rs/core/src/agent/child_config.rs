@@ -222,11 +222,15 @@ async fn apply_requested_spawn_agent_model_overrides(
             .models_manager
             .list_models(RefreshStrategy::Offline, config.http_client_factory())
             .await;
-        let selected_model_name = find_spawn_agent_model_name(
-            &available_models,
-            requested_model,
-            turn.multi_agent_version,
-        )?;
+        let selected_model_name = if requested_model.contains("::") {
+            config.select_provider_model(requested_model)?
+        } else {
+            find_spawn_agent_model_name(
+                &available_models,
+                requested_model,
+                turn.multi_agent_version,
+            )?
+        };
         let selected_model_info = session
             .services
             .models_manager

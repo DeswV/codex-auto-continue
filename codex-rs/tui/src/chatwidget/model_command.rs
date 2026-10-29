@@ -118,7 +118,12 @@ fn resolve_model_command(chat: &ChatWidget, args: &str) -> Result<ModelCommand, 
     if chat.thread_id().is_none() {
         return Err("Session is still starting; try /model again in a moment.".into());
     }
-    if chat.restrict_model_picker_to_luna_reserve() {
+    let switches_provider = args
+        .model
+        .as_deref()
+        .and_then(|model| model.split_once("::"))
+        .is_some_and(|(provider, _)| provider != chat.config.model_provider_id);
+    if chat.restrict_model_picker_to_luna_reserve() && !switches_provider {
         return Err(
             "Model arguments are unavailable while using Reserve. Use /model to adjust effort."
                 .into(),
@@ -128,19 +133,38 @@ fn resolve_model_command(chat: &ChatWidget, args: &str) -> Result<ModelCommand, 
         .model
         .clone()
         .unwrap_or_else(|| chat.current_model().to_owned());
-    let Some(model) =
-        chat.model_catalog.models.iter().find(|model| {
-            model.model == model_name && (args.model.is_none() || model.show_in_picker)
-        })
-    else {
-        return Err(format!(
-            "Model '{model_name}' is unavailable. Use /model to see available models."
-        ));
+    let mut selected_config = chat.config.clone();
+    let qualified = model_name.contains("::");
+    let bare_model = if qualified {
+        selected_config.select_provider_model(&model_name)?
+    } else {
+        model_name.clone()
     };
+    let known = chat.model_catalog.models.iter().find(|model| {
+        model.model == bare_model && (qualified || args.model.is_none() || model.show_in_picker)
+    });
+    let mut model =
+        if let Some(model) = known {
+            model.clone()
+        } else if qualified || chat.config.model_provider_id != "openai" {
+            let mut model =
+                chat.model_catalog.models.first().cloned().ok_or_else(|| {
+                    "Model catalog is still loading; try again shortly.".to_string()
+                })?;
+            model.default_reasoning_effort = ReasoningEffort::None;
+            model.supported_reasoning_efforts.clear();
+            model.service_tiers.clear();
+            model
+        } else {
+            return Err(format!(
+                "Model '{model_name}' is unavailable. Use /model to see available models."
+            ));
+        };
+    model.model = model_name;
     Ok(ModelCommand {
         model: model.model.clone(),
-        effort: resolve_reasoning_effort(chat, &args, model)?,
-        service_tier: resolve_service_tier(chat, args.speed.as_deref(), model)?,
+        effort: resolve_reasoning_effort(chat, &args, &model)?,
+        service_tier: resolve_service_tier(chat, args.speed.as_deref(), &model)?,
     })
 }
 

@@ -44,6 +44,80 @@
 
 更新检查沿用现有 `check_for_update_on_startup` 设置。普通 debug 构建默认不启用官方更新检查；下方提供 release 构建和保留更新检查的开发构建命令。
 
+## ChatGPT 订阅与第三方 API 混合使用
+
+可以保留官方 Plus/Pro 的 ChatGPT 登录，同时配置一个或多个第三方服务商。每个服务商使用自己的 endpoint 和 API key；切换服务商不会注销订阅账户，也不会覆盖其登录凭据。目前第三方接口需要兼容 **OpenAI Responses API**（`/responses`）；仅提供 Chat Completions 的接口不能直接使用。
+
+在现有配置中加入服务商定义，例如：
+
+```toml
+# 主代理默认使用订阅模型。
+model_provider = "openai"
+model = "gpt-5.4"
+
+[model_providers.third_party]
+name = "My API service"
+base_url = "https://your-api.example/v1"
+wire_api = "responses"
+env_key = "THIRD_PARTY_API_KEY"
+requires_openai_auth = false
+# 服务商不支持 Responses WebSocket 时使用 HTTP。
+supports_websockets = false
+```
+
+将 `THIRD_PARTY_API_KEY` 设置在运行 Codex 的进程环境中；使用后台服务器时，该变量需要存在于**服务器进程**的环境中。上述域名和模型名是示例，应替换为服务商实际提供的值。已有 ChatGPT 登录时无需重新登录；首次使用订阅模型时先通过 `codex-auto-continue login` 登录 ChatGPT。
+
+### 在同一线程切换服务商
+
+TUI 支持 `provider::model` 形式的模型选择：
+
+```text
+/model third_party::vendor/custom-model
+/model openai::gpt-5.4
+```
+
+模型选择作用于该线程后续启动的回合，保留同一线程的聊天历史，不会改变已经发出的模型请求。没有前缀的模型名沿用当前服务商。app-server 客户端也可以在 `turn/start` 或 `thread/settings/update` 的 `model` 字段中传入同样的选择器。
+
+前缀是配置中的服务商 ID（上例中的 `third_party`），传给 API 的模型名只有后面的 `vendor/custom-model`。切换时会隔离服务商的连接和路由状态；订阅认证不会用作第三方 API 的认证。
+
+### 主代理与子代理使用不同服务商
+
+可以在请求子代理时显式指定 `model = "third_party::vendor/custom-model"`，或指定 `model = "openai::gpt-5.4"`。新建无历史继承的子代理可使用如下参数：
+
+```json
+{
+  "task_name": "review",
+  "message": "Review the changes",
+  "fork_turns": "none",
+  "model": "third_party::vendor/custom-model"
+}
+```
+
+也可以配置默认子代理模型：
+
+```toml
+[agents]
+default_subagent_model = "third_party::vendor/custom-model"
+```
+
+角色配置文件可以选择父线程已配置的服务商，例如 `agents/api-reviewer.toml`：
+
+```toml
+model_provider = "third_party"
+model = "vendor/custom-model"
+developer_instructions = "Review the changes and report concrete issues."
+```
+
+在主配置中注册该角色：
+
+```toml
+[agents.api_reviewer]
+description = "Review changes using the third-party API"
+config_file = "agents/api-reviewer.toml"
+```
+
+反过来，主代理使用第三方服务时，可将默认子代理模型设为 `openai::gpt-5.4`，或在子代理角色文件中设置 `model_provider = "openai"`。子代理的服务商选择不会改变父线程的选择；权限和其他父线程约束仍然保留。角色文件只能选择已经配置的服务商，不能借此重定义 endpoint 或凭据。受管理环境中的服务商限制仍然生效。
+
 ## 从源码构建
 
 以下命令面向 Linux；已在 Linux x86_64 环境完成开发构建和针对性测试。

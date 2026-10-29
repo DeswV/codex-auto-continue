@@ -49,6 +49,7 @@ export type { AsyncUserInputQuestion } from "./AsyncUserInputQuestion";
 export type { AttestationGenerateParams } from "./AttestationGenerateParams";
 export type { AttestationGenerateResponse } from "./AttestationGenerateResponse";
 export type { AuthRecoveryNotification } from "./AuthRecoveryNotification";
+export type { AutoRetryNotification } from "./AutoRetryNotification";
 export type { AutoReviewDecisionSource } from "./AutoReviewDecisionSource";
 export type { AutoReviewRequirements } from "./AutoReviewRequirements";
 export type { BrowserUseAccessApprovalLifetime } from "./BrowserUseAccessApprovalLifetime";

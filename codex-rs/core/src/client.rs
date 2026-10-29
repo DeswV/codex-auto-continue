@@ -687,10 +687,46 @@ impl ModelClient {
         }
     }
 
-    /// Creates a fresh turn-scoped streaming session.
-    ///
-    /// This constructor does not perform network I/O itself; the session opens a websocket lazily
-    /// when the first stream request is issued.
+    /// Retains thread metadata while isolating a different provider's auth and connection state.
+    pub(crate) fn for_provider(&self, provider: SharedModelProvider) -> Self {
+        if self.state.provider.info() == provider.info() {
+            return self.clone();
+        }
+        let previous = &self.state;
+        let mut client = self.clone();
+        let codex_api_key_env_enabled = provider
+            .auth_manager()
+            .as_ref()
+            .is_some_and(|manager| manager.codex_api_key_env_enabled());
+        let auth_env_telemetry =
+            collect_auth_env_telemetry(provider.info(), codex_api_key_env_enabled);
+        let include_attestation = provider.supports_attestation();
+        client.state = Arc::new(ModelClientState {
+            provider,
+            auth_env_telemetry,
+            include_attestation,
+            thread_id: previous.thread_id,
+            workspace_routing: previous.workspace_routing.clone(),
+            session_source: previous.session_source.clone(),
+            originator: previous.originator.clone(),
+            model_verbosity: previous.model_verbosity,
+            content_item_kinds_enabled: previous.content_item_kinds_enabled,
+            reasoning_effort_override_enabled: previous.reasoning_effort_override_enabled,
+            enable_request_compression: previous.enable_request_compression,
+            include_timing_metrics: previous.include_timing_metrics,
+            beta_features_header: previous.beta_features_header.clone(),
+            concurrent_reasoning_summaries_enabled: previous.concurrent_reasoning_summaries_enabled,
+            output_token_replay_enabled: previous.output_token_replay_enabled,
+            attestation_provider: previous.attestation_provider.clone(),
+            disable_websockets: AtomicBool::new(false),
+            agent_identity_session_fallback: AgentIdentitySessionFallback::default(),
+            cached_websocket_session: StdMutex::new(WebsocketSession::default()),
+            last_inference_tools: StdMutex::new(None),
+        });
+        client
+    }
+
+    /// Creates a turn-scoped session; its websocket opens lazily on the first request.
     pub fn new_session(&self) -> ModelClientSession {
         let auth_owner_generation = self.auth_owner_generation();
         let mut websocket_session = self.take_cached_websocket_session();
@@ -1464,6 +1500,10 @@ impl Drop for ModelClientSession {
 }
 
 impl ModelClientSession {
+    pub(crate) fn matches_provider(&self, provider: &SharedModelProvider) -> bool {
+        self.client.state.provider.info() == provider.info()
+    }
+
     pub(crate) fn inference_tools_changed(&self, tools: &Arc<[ToolSpec]>) -> bool {
         let previous = self
             .client

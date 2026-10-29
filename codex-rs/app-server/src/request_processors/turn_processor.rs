@@ -949,7 +949,11 @@ impl TurnRequestProcessor {
         request_id: &ConnectionRequestId,
         params: ThreadSettingsUpdateParams,
     ) -> Result<ThreadSettingsUpdateResponse, JSONRPCErrorError> {
-        let (_, thread) = self.load_thread(&params.thread_id).await?;
+        let (thread_id, thread) = self.load_thread(&params.thread_id).await?;
+        if params.model.is_some() || params.collaboration_mode.is_some() {
+            crate::auto_retry::cancel(thread_id, "", &self.thread_state_manager, &self.outgoing)
+                .await;
+        }
         self.ensure_direct_input_allowed(request_id, thread.as_ref())
             .await?;
         let cwd = resolve_request_cwd(params.cwd)?;

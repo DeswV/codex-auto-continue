@@ -167,6 +167,7 @@ mod auth_keyring;
 pub mod edit;
 mod managed_features;
 mod metrics;
+mod model_selection;
 mod network_config;
 mod network_proxy_spec;
 mod otel;

@@ -137,7 +137,12 @@ pub(super) async fn run_remote_compact_v2_attempt(
                 .executed_tool_calls
                 .attach_to_compaction_prompt(&mut input);
             let client_session = client_session.unwrap_or_else(|| {
-                owned_client_session.insert(sess.services.model_client.new_session())
+                owned_client_session.insert(
+                    sess.services
+                        .model_client
+                        .for_provider(step_context.turn.provider.clone())
+                        .new_session(),
+                )
             });
             (
                 model_info,

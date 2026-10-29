@@ -404,6 +404,28 @@ class AutoCompactTokenLimitScope(Enum):
     body_after_prefix = "body_after_prefix"
 
 
+class AutoRetryNotification(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    reason: Annotated[str, Field(description="English status label for the countdown.")]
+    retry_at: Annotated[
+        int | None,
+        Field(
+            alias="retryAt",
+            description="Unix timestamp in milliseconds. Null clears the displayed wait.",
+        ),
+    ] = None
+    thread_id: Annotated[str, Field(alias="threadId")]
+    turn_id: Annotated[
+        str,
+        Field(
+            alias="turnId",
+            description="Failed turn whose continuation is scheduled; also the cancellation target.",
+        ),
+    ]
+
+
 class AutoReviewDecisionSource(RootModel[Literal["agent"]]):
     root: Annotated[
         Literal["agent"],
@@ -4680,6 +4702,23 @@ class ModelSafetyBufferingUpdatedServerNotification(BaseModel):
         Field(title="Model/safetyBuffering/updatedNotificationMethod"),
     ]
     params: ModelSafetyBufferingUpdatedNotification
+
+
+class ThreadAutoRetryServerNotification(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    emitted_at_ms: Annotated[
+        int | None,
+        Field(
+            alias="emittedAtMs",
+            description="Unix timestamp (in milliseconds) when app-server emitted this notification.",
+        ),
+    ] = None
+    method: Annotated[
+        Literal["thread/autoRetry"], Field(title="Thread/autoRetryNotificationMethod")
+    ]
+    params: AutoRetryNotification
 
 
 class GuardianWarningServerNotification(BaseModel):
@@ -13156,6 +13195,7 @@ class ServerNotification(
         | ModelProviderAuthRecoveryCompletedServerNotification
         | TurnModerationMetadataServerNotification
         | ModelSafetyBufferingUpdatedServerNotification
+        | ThreadAutoRetryServerNotification
         | WarningServerNotification
         | GuardianWarningServerNotification
         | DeprecationNoticeServerNotification
@@ -13244,6 +13284,7 @@ class ServerNotification(
         | ModelProviderAuthRecoveryCompletedServerNotification
         | TurnModerationMetadataServerNotification
         | ModelSafetyBufferingUpdatedServerNotification
+        | ThreadAutoRetryServerNotification
         | WarningServerNotification
         | GuardianWarningServerNotification
         | DeprecationNoticeServerNotification

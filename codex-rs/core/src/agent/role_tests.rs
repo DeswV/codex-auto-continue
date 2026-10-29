@@ -526,8 +526,8 @@ command = "attacker-command"
     );
     assert_eq!(config.model.as_deref(), Some("role-model"));
     assert_eq!(config.permissions, parent.permissions);
-    assert_eq!(config.model_provider_id, parent.model_provider_id);
-    assert_eq!(config.model_provider, parent.model_provider);
+    assert_eq!(config.model_provider_id, "ollama");
+    assert_eq!(config.model_provider, parent.model_providers["ollama"]);
     assert_eq!(config.model_providers, parent.model_providers);
     assert_eq!(config.approvals_reviewer, parent.approvals_reviewer);
     assert_eq!(config.mcp_servers, parent.mcp_servers);
@@ -545,7 +545,6 @@ command = "attacker-command"
     for key in [
         "openai_base_url",
         "chatgpt_base_url",
-        "model_provider",
         "approval_policy",
         "sandbox_mode",
         "notify",
@@ -818,4 +817,43 @@ fn built_in_config_file_contents_resolves_explorer_only() {
         built_in::config_file_contents(Path::new("missing.toml")),
         None
     );
+}
+
+#[tokio::test]
+async fn provider_switch_roles_can_use_a_different_provider_from_the_parent() {
+    for (parent_provider, child_provider) in [("openai", "third_party"), ("third_party", "openai")]
+    {
+        let (home, mut parent) = test_config_with_cli_overrides(Vec::new()).await;
+        let mut provider = parent.model_providers["openai"].clone();
+        provider.name = "Third party".into();
+        provider.requires_openai_auth = false;
+        provider.base_url = Some("https://api.example.invalid/v1".into());
+        parent
+            .model_providers
+            .insert("third_party".into(), provider);
+        parent.select_model_provider(parent_provider).unwrap();
+        let role_path = write_role_config(
+            &home,
+            "provider-role.toml",
+            &format!("model_provider = \"{child_provider}\"\nmodel = \"child-model\"\n"),
+        )
+        .await;
+        parent.agent_roles.insert(
+            "custom".into(),
+            AgentRoleConfig {
+                description: None,
+                config_file: Some(role_path),
+                nickname_candidates: None,
+            },
+        );
+        let mut child = parent.clone();
+        apply_role_to_config(&mut child, Some("custom"))
+            .await
+            .unwrap();
+        assert_eq!(parent.model_provider_id, parent_provider);
+        assert_eq!(child.model_provider_id, child_provider);
+        assert_eq!(child.model_provider, parent.model_providers[child_provider]);
+        assert_eq!(child.permissions, parent.permissions);
+        assert_eq!(child.model_providers, parent.model_providers);
+    }
 }

@@ -13,6 +13,7 @@ from .v2_all import AccountUpdatedNotification
 from .v2_all import AgentMessageDeltaNotification
 from .v2_all import AppListUpdatedNotification
 from .v2_all import AuthRecoveryNotification
+from .v2_all import AutoRetryNotification
 from .v2_all import CommandExecOutputDeltaNotification
 from .v2_all import CommandExecutionOutputDeltaNotification
 from .v2_all import ConfigWarningNotification
@@ -98,6 +99,7 @@ KnownNotificationPayload: TypeAlias = (
     | AgentMessageDeltaNotification
     | AppListUpdatedNotification
     | AuthRecoveryNotification
+    | AutoRetryNotification
     | CommandExecOutputDeltaNotification
     | CommandExecutionOutputDeltaNotification
     | ConfigWarningNotification
@@ -226,6 +228,7 @@ NOTIFICATION_MODELS: dict[str, type[KnownNotificationPayload]] = {
     "skills/changed": SkillsChangedNotification,
     "thread/archived": ThreadArchivedNotification,
     "thread/attachment/updated": ThreadAttachmentUpdatedNotification,
+    "thread/autoRetry": AutoRetryNotification,
     "thread/closed": ThreadClosedNotification,
     "thread/compacted": ContextCompactedNotification,
     "thread/deleted": ThreadDeletedNotification,
@@ -268,6 +271,7 @@ NOTIFICATION_MODELS: dict[str, type[KnownNotificationPayload]] = {
 DIRECT_TURN_ID_NOTIFICATION_TYPES: tuple[type[BaseModel], ...] = (
     AgentMessageDeltaNotification,
     AuthRecoveryNotification,
+    AutoRetryNotification,
     CommandExecutionOutputDeltaNotification,
     ContextCompactedNotification,
     ErrorNotification,

@@ -19,6 +19,7 @@ pub(crate) struct AutoRetry {
     last: Option<(Instant, Duration)>,
     ceiling: f64,
     reset: Option<i64>,
+    provider_id: Option<String>,
     goal_active: bool,
     goal_turn_id: Option<String>,
     turn_goal: bool,
@@ -91,6 +92,15 @@ impl AutoRetry {
     }
     pub(crate) fn observe(&mut self, turn_id: &str, event: &EventMsg) {
         match event {
+            EventMsg::ThreadSettingsApplied(e) => {
+                let provider = &e.thread_settings.model_provider_id;
+                if self.provider_id.as_ref().is_some_and(|id| id != provider) {
+                    self.reset = None;
+                    self.last = None;
+                    self.pending = None;
+                }
+                self.provider_id = Some(provider.clone());
+            }
             EventMsg::ThreadGoalUpdated(e) => {
                 self.observe_goal(
                     e.goal.status == ThreadGoalStatus::Active,

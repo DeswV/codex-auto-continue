@@ -182,7 +182,38 @@ impl Session {
             ensure_configs_stay_owner_provided(current_environments, &environments.environments)?;
         }
 
-        current.apply(updates, current_environments)
+        let selector = updates
+            .step_settings
+            .collaboration_mode
+            .as_ref()
+            .map(|mode| mode.model())
+            .or(updates.step_settings.model.as_deref());
+        if let Some(selector) = selector.filter(|selector| selector.contains("::")) {
+            let mut config = (*current.original_config_do_not_use).clone();
+            let model = config.select_provider_model(selector).map_err(|reason| {
+                crate::config::ConstraintError::InvalidValue {
+                    field_name: "model",
+                    candidate: selector.to_owned(),
+                    allowed: reason,
+                    requirement_source: codex_config::RequirementSource::Unknown,
+                }
+            })?;
+            let mut proposed = current.clone();
+            proposed.provider = codex_model_provider::create_model_provider(
+                config.model_provider.clone(),
+                Some(Arc::clone(&self.services.auth_manager)),
+            );
+            proposed.model_info_overrides = config.to_models_manager_config().into();
+            proposed.original_config_do_not_use = Arc::new(config);
+            let mut updates = updates.clone();
+            if let Some(mode) = updates.step_settings.collaboration_mode.as_mut() {
+                mode.settings.model = model.clone();
+            }
+            updates.step_settings.model = Some(model);
+            proposed.apply(&updates, current_environments)
+        } else {
+            current.apply(updates, current_environments)
+        }
     }
 
     /// Activates the environments accepted for a new task. Configuration may have arrived for

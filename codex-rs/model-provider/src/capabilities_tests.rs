@@ -33,3 +33,19 @@ fn capability_overrides_preserve_unspecified_provider_defaults() {
         );
     }
 }
+
+#[test]
+fn third_party_provider_does_not_receive_subscription_attestation() {
+    let auth = codex_login::AuthManager::from_auth_for_testing(
+        codex_login::CodexAuth::create_dummy_chatgpt_auth_for_testing(),
+    );
+    let official = ModelProviderInfo::create_openai_provider(None);
+    assert!(create_model_provider(official.clone(), Some(auth.clone())).supports_attestation());
+    let custom = ModelProviderInfo {
+        name: "Third party".into(),
+        requires_openai_auth: false,
+        base_url: Some("https://api.example.invalid/v1".into()),
+        ..official
+    };
+    assert!(!create_model_provider(custom, Some(auth)).supports_attestation());
+}

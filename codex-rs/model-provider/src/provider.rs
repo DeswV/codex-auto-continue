@@ -466,10 +466,13 @@ impl ModelProvider for ConfiguredModelProvider {
     }
 
     fn supports_attestation(&self) -> bool {
-        self.auth_manager
-            .as_ref()
-            .and_then(|auth_manager| auth_manager.auth_cached())
-            .is_some_and(|auth| auth.is_chatgpt_auth())
+        self.info.is_openai()
+            && provider_uses_first_party_auth_path(&self.info)
+            && self
+                .auth_manager
+                .as_ref()
+                .and_then(|auth_manager| auth_manager.auth_cached())
+                .is_some_and(|auth| auth.is_chatgpt_auth())
     }
 
     fn auth(&self) -> ModelProviderFuture<'_, Option<CodexAuth>> {

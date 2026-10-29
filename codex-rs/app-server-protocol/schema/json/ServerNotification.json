@@ -627,6 +627,35 @@
       ],
       "type": "object"
     },
+    "AutoRetryNotification": {
+      "properties": {
+        "reason": {
+          "description": "English status label for the countdown.",
+          "type": "string"
+        },
+        "retryAt": {
+          "description": "Unix timestamp in milliseconds. Null clears the displayed wait.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "threadId": {
+          "type": "string"
+        },
+        "turnId": {
+          "description": "Failed turn whose continuation is scheduled; also the cancellation target.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason",
+        "threadId",
+        "turnId"
+      ],
+      "type": "object"
+    },
     "AutoReviewDecisionSource": {
       "description": "[UNSTABLE] Source that produced a terminal approval auto-review decision.",
       "enum": [
@@ -8454,6 +8483,26 @@
         "params"
       ],
       "title": "Model/safetyBuffering/updatedNotification",
+      "type": "object"
+    },
+    {
+      "properties": {
+        "method": {
+          "enum": [
+            "thread/autoRetry"
+          ],
+          "title": "Thread/autoRetryNotificationMethod",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/definitions/AutoRetryNotification"
+        }
+      },
+      "required": [
+        "method",
+        "params"
+      ],
+      "title": "Thread/autoRetryNotification",
       "type": "object"
     },
     {

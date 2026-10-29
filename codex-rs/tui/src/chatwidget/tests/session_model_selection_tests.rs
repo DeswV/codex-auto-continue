@@ -159,3 +159,21 @@ async fn session_model_selection_hides_conflicting_shortcut() {
             .any(|event| matches!(event, AppEvent::PersistModelSelection { .. }))
     );
 }
+
+#[tokio::test]
+async fn provider_switch_model_command_accepts_registered_provider_qualified_model() {
+    let (mut chat, mut events, _) = make_chatwidget_manual(Some("gpt-5.5")).await;
+    chat.thread_id = Some(ThreadId::new());
+    let mut provider = chat.config.model_provider.clone();
+    provider.name = "Third party".into();
+    provider.requires_openai_auth = false;
+    chat.config
+        .model_providers
+        .insert("third_party".into(), provider);
+    while events.try_recv().is_ok() {}
+    chat.handle_model_command_args("third_party::vendor/new-model");
+    let selected = std::iter::from_fn(|| events.try_recv().ok())
+        .find(|event| matches!(event, AppEvent::SelectSessionModel { .. }))
+        .expect("qualified model selection");
+    assert_matches!(selected, AppEvent::SelectSessionModel { model, .. } if model == "third_party::vendor/new-model");
+}

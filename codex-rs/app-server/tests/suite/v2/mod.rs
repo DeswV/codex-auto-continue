@@ -2,6 +2,7 @@ mod account;
 #[path = "account_system_proxy_tests.rs"]
 mod account_system_proxy;
 mod auto_retry;
+mod provider_switch;
 
 mod account_gcp;
 mod account_thread_usage;

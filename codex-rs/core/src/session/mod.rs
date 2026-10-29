@@ -734,6 +734,12 @@ impl Session {
             )
         };
 
+        let mut config = config;
+        if let Some(selector) = config.model.clone().filter(|model| model.contains("::")) {
+            config
+                .select_provider_model(&selector)
+                .map_err(CodexErr::InvalidRequest)?;
+        }
         let mut config = Arc::new(config);
         let refresh_strategy = if session_source.is_non_root_agent() {
             codex_models_manager::manager::RefreshStrategy::Offline
