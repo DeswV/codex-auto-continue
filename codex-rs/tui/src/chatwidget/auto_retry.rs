@@ -115,6 +115,7 @@ mod tests {
     #[tokio::test]
     async fn ctrl_b_no_longer_detaches_and_cancels_wait_like_other_input() {
         let (mut widget, _, mut events, _) = make_chatwidget_manual_with_sender().await;
+        widget.thread_id = Some(ThreadId::new());
         widget.on_auto_retry(notification());
         while events.try_recv().is_ok() {}
         widget.handle_key_event(KeyEvent::new(KeyCode::Char('b'), KeyModifiers::CONTROL));
