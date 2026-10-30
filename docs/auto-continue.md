@@ -98,12 +98,14 @@
 export CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=4
 cargo fmt --all --check
 cargo test --locked -p codex-tui --lib auto_retry
-cargo test --locked -p codex-tui --lib background_exit
+RUST_MIN_STACK=16777216 cargo test --locked -p codex-tui --lib background_exit
 cargo test --locked -p codex-tui --lib update_versions
 cargo test --locked -p codex-app-server --lib auto_retry
 cargo test --locked -p codex-app-server --test all auto_retry
 cargo test --locked -p codex-app-server --test all provider_switch
 ```
+
+`background_exit` 包含需要较大线程栈的既有集成测试，上述命令仅对该测试进程设置 16 MiB 栈。
 
 对应测试代码：
 
