@@ -61,6 +61,14 @@ mod tests {
     fn custom_build_compares_official_version() {
         assert_eq!(is_newer("0.165.0", "0.164.0+auto_continue"), Some(true));
         assert_eq!(is_newer("0.164.0", "0.164.0+auto_continue"), Some(false));
+        assert_eq!(
+            is_newer("0.166.0", "0.165.0+auto_continue.0.1.0"),
+            Some(true)
+        );
+        assert_eq!(
+            is_newer("0.165.0", "0.165.0+auto_continue.0.1.0"),
+            Some(false)
+        );
     }
 
     #[test]

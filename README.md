@@ -1,6 +1,8 @@
 # Codex Auto Continue
 
-基于 [OpenAI Codex](https://github.com/openai/codex) 的自定义版本。当前基于官方 `0.165.0`，CLI 和 TUI 显示版本为 `0.165.0+auto_continue`。
+基于 [OpenAI Codex](https://github.com/openai/codex) 的自定义版本。当前基于官方 `0.165.0`，CLI 和 TUI 显示版本为 `0.165.0+auto_continue.0.1.0`。
+
+版本号采用 `<官方版本>+auto_continue.<自定义版本>`，自定义版本从 `0.1.0` 开始独立递增。
 
 ## 新增功能
 
@@ -122,7 +124,7 @@ cargo build --locked --release -p codex-cli --bin codex
 产物为 `codex-rs/target/release/codex`，当前应输出：
 
 ```text
-codex-cli 0.165.0+auto_continue
+codex-cli 0.165.0+auto_continue.0.1.0
 ```
 
 ### 开发构建

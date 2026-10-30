@@ -79,7 +79,7 @@
 
 ## 版本与更新
 
-[cli/src/main.rs](../codex-rs/cli/src/main.rs) 的 CLI 版本添加 `+auto_continue`；TUI 使用同样的显示后缀。[tui/src/update_versions.rs](../codex-rs/tui/src/update_versions.rs) 的版本比较忽略构建后缀，[tui/src/update_action.rs](../codex-rs/tui/src/update_action.rs) 不提供直接安装操作。
+[cli/src/main.rs](../codex-rs/cli/src/main.rs) 的 CLI 版本添加 `+auto_continue.0.1.0`；TUI 使用同样的显示后缀。版本格式为 `<官方版本>+auto_continue.<自定义版本>`，当前为 `0.165.0+auto_continue.0.1.0`。自定义版本按 SemVer 独立递增；合并官方更新时不重置自定义版本。[tui/src/update_versions.rs](../codex-rs/tui/src/update_versions.rs) 的版本比较忽略构建后缀，[tui/src/update_action.rs](../codex-rs/tui/src/update_action.rs) 不提供直接安装操作。
 
 更新检查沿用 `check_for_update_on_startup`。普通 debug 构建默认关闭官方更新检查；README 开发构建命令通过针对 TUI 的 `debug-assertions=false` 保留更新检查，并关闭调试符号和增量缓存来降低构建磁盘占用。这些构建环境变量不修改 Codex 配置。独立 `codex-app-server` 的版本可能只显示官方基础版本，不附带 CLI 后缀。
 
