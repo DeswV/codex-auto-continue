@@ -7,18 +7,17 @@ from pathlib import Path
 
 from .archive import write_archive
 from .cargo import build_source_binaries
-from .layout import build_package_dir
-from .layout import prepare_package_dir
-from .layout import validate_package_dir
+from .layout import build_package_dir, prepare_package_dir, validate_package_dir
 from .ripgrep import resolve_rg_bin
 from .symbols import strip_binary
-from .targets import PACKAGE_VARIANTS
-from .targets import TARGET_SPECS
-from .targets import PackageInputs
-from .targets import default_target
-from .targets import resolve_input_path
+from .targets import (
+    PACKAGE_VARIANTS,
+    TARGET_SPECS,
+    PackageInputs,
+    default_target,
+    resolve_input_path,
+)
 from .version import read_workspace_version
-
 
 # Release pipelines run this builder with system Python, so avoid new dependencies.
 SEMVER_PATTERN = re.compile(
@@ -198,6 +197,7 @@ def assemble_package(args: argparse.Namespace) -> Path:
     source_outputs = build_source_binaries(
         spec,
         variant,
+        native_build=getattr(args, "native_build", False),
         cargo=args.cargo,
         profile=args.cargo_profile,
         entrypoint_bin=resolve_optional_input_path(

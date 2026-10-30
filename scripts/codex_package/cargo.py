@@ -5,11 +5,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from .targets import REPO_ROOT
-from .targets import PackageVariant
-from .targets import TargetSpec
+from .targets import REPO_ROOT, PackageVariant, TargetSpec
 from .v8 import resolve_codex_v8_cargo_env
-
 
 CODEX_RS_ROOT = REPO_ROOT / "codex-rs"
 
@@ -34,6 +31,7 @@ def build_source_binaries(
     bwrap_bin: Path | None,
     codex_command_runner_bin: Path | None,
     codex_windows_sandbox_setup_bin: Path | None,
+    native_build: bool = False,
 ) -> SourceBuildOutputs:
     validate_prebuilt_resource_inputs(
         spec,
@@ -55,11 +53,12 @@ def build_source_binaries(
         cmd = [
             cargo,
             "build",
-            "--target",
-            spec.target,
+            "--locked",
             "--profile",
             profile,
         ]
+        if not native_build:
+            cmd.extend(["--target", spec.target])
         for binary in binaries:
             cmd.extend(["--bin", binary])
 
@@ -77,7 +76,11 @@ def build_source_binaries(
             env=cargo_env,
         )
 
-    output_dir = cargo_profile_output_dir(spec, profile)
+    output_dir = (
+        cargo_target_dir() / cargo_profile_dirname(profile)
+        if native_build
+        else cargo_profile_output_dir(spec, profile)
+    )
     outputs = SourceBuildOutputs(
         entrypoint_bin=resolve_output_path(
             entrypoint_bin,

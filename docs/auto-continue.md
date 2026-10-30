@@ -90,6 +90,20 @@
 
 后台服务使用独立保存的程序包；普通 restart 沿用已有副本。`daemon update --from-cli --yes` 将当前 CLI 程序包固定为服务端版本，并在服务运行时重启。不带 `--from-cli` 的更新会返回官方生产更新渠道。管理服务使用相同用户与 `CODEX_HOME`；后台进程需要自己的 API key 环境变量。
 
+## 源码构建的完整程序包
+
+`daemon update --from-cli` 不接受孤立的 Cargo 二进制。安装上下文从实际可执行文件的路径识别包布局；`bin/codex` 上一级必须有 `codex-package.json`，并包含 code-mode host、ripgrep 及当前平台的沙箱资源。符号链接可以保留原包路径的识别，直接复制单个二进制则会丢失包上下文。
+
+- [scripts/build_auto_continue_package.py](../scripts/build_auto_continue_package.py)：本 fork 的打包入口，读取 Rust 中的显示版本，核对预编译 CLI 的版本，并选择本机 Rust target；复用官方完整包构建器。
+- [scripts/codex_package/layout.py](../scripts/codex_package/layout.py)：包目录、资源复制及清单生成。
+- [scripts/codex_package/cargo.py](../scripts/codex_package/cargo.py)：缺少预编译输入时构建辅助程序。本 fork 打包入口默认使用本机 target 和原有 Cargo 输出目录；显式传入 `--target` 时使用官方跨目标构建方式。构建 code-mode host 时，通过官方 `v8.py` 获取并校验匹配的 Codex V8 sandbox 制品；直接编译 host 而不指定这些制品时，denoland 默认下载源可能返回 404。
+- [install-context/src/lib.rs](../codex-rs/install-context/src/lib.rs)：从实际可执行文件路径识别完整包。
+- [app-server-daemon/src/prepare_install.rs](../codex-rs/app-server-daemon/src/prepare_install.rs)：完整性、平台和可执行文件摘要校验；复制后固定版本，运行中的服务完成替换后重启。
+
+CLI 显示仍使用用户指定的 `0.165.0+auto_continue.0.1.0`。下划线不符合严格 SemVer，因此机器读取的包清单版本写为 `0.165.0+auto-continue.0.1.0`。这是包元数据规范化，不改变 CLI/TUI 显示。带构建元数据的本地包不会被当作官方稳定包自动跟随更新。
+
+这里纠正此前仅复制二进制的安装说明：该方式可以启动前端，但无法提供后台服务安装所需的完整包，也会缺失辅助程序。完整包应整体保留；`--from-cli` 必须通过包内的 CLI 或指向它的符号链接执行。
+
 ## 验证
 
 在 `codex-rs` 目录执行。下面的环境变量仅影响本次测试，不修改用户配置：
@@ -116,3 +130,9 @@ cargo test --locked -p codex-app-server --test all provider_switch
 - [多服务商集成测试](../codex-rs/app-server/tests/suite/v2/provider_switch.rs)：订阅与 API 来回切换保留历史和认证隔离、主子代理双向混用。
 
 集成测试使用本地模拟 API，不消耗真实订阅或 API 额度，也不代替真实限额耗尽时的端到端验证。
+
+打包入口回归测试（在仓库根目录执行）：
+
+```bash
+PYTHONPATH=scripts python3 -m unittest codex_package.test_auto_continue
+```

@@ -94,7 +94,7 @@ config_file = "agents/api-reviewer.toml"
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git curl build-essential pkg-config libssl-dev
+sudo apt-get install -y git curl python3 build-essential pkg-config libssl-dev libcap-dev
 ```
 
 如果尚未安装 Rust：
@@ -117,7 +117,7 @@ rustup show
 ### Release 构建
 
 ```bash
-cargo build --locked --release -p codex-cli --bin codex
+cargo build --locked --release -p codex-cli --bin codex -j 16
 ./target/release/codex --version
 ```
 
@@ -132,25 +132,47 @@ codex-cli 0.165.0+auto_continue.0.1.0
 开发时可使用以下构建命令：
 
 ```bash
-CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=4 \
+CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=16 \
   cargo build --locked -p codex-cli --bin codex \
   --config 'profile.dev.package.codex-tui.debug-assertions=false'
 
 ./target/debug/codex --version
 ```
 
-## 安装编译产物
+### 生成完整程序包
 
-在 `codex-rs` 目录执行：
+仅有 `target/release/codex` 不能执行后台服务的 `update --from-cli`。构建完成后，在 `codex-rs` 目录中打包：
 
 ```bash
-mkdir -p ~/.local/bin
-install -m 755 target/release/codex ~/.local/bin/codex-auto-continue
-# 可选：去除符号以缩小文件
-strip ~/.local/bin/codex-auto-continue
+CARGO_BUILD_JOBS=16 python3 ../scripts/build_auto_continue_package.py \
+  --cargo-profile release \
+  --entrypoint-bin target/release/codex \
+  --strip all \
+  --package-dir target/auto-continue-package
 ```
 
-使用开发构建时，将安装命令中的 `target/release/codex` 替换为 `target/debug/codex`。
+脚本会构建缺少的辅助程序并下载所需资源。`--strip all` 只缩小包内的 CLI 和 host 副本，保留原始编译产物。已有预编译辅助程序时，可传 `--code-mode-host-bin` 和 `--bwrap-bin` 指定其路径。已有本地 ripgrep 时可传 `--rg-bin "$(command -v rg)"`。重新生成已有程序包时添加 `--force`。
+
+开发构建请改用 `--cargo-profile dev --entrypoint-bin target/debug/codex`，并按需设置 `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0`。
+
+可直接使用完整包中的程序替换后台服务：
+
+```bash
+target/auto-continue-package/bin/codex app-server daemon update --from-cli --yes
+```
+
+## 安装编译产物
+
+安装时保留整个程序包，通过符号链接提供命令；不要只复制其中的 `codex` 文件。在 `codex-rs` 目录执行：
+
+```bash
+mkdir -p ~/.local/lib/codex-auto-continue ~/.local/bin
+cp -a target/auto-continue-package/. ~/.local/lib/codex-auto-continue/
+ln -sfn "$HOME/.local/lib/codex-auto-continue/bin/codex" \
+  ~/.local/bin/codex-auto-continue
+
+~/.local/bin/codex-auto-continue --version
+```
 
 将 `~/.local/bin/` 加入 `PATH`，然后你就可以像使用 `codex` 那样使用 `codex-auto-continue` 命令。
 
@@ -162,24 +184,9 @@ alias codex="~/.local/bin/codex-auto-continue"
 
 那么使用 `codex` 命令就是直接使用 `codex-auto-continue`。
 
-## 管理后台服务器
-
-以下命令使用安装后的 `codex-auto-continue`。尚未安装时，可在 `codex-rs` 目录中改用 `./target/release/codex`；开发构建使用 `./target/debug/codex`。请使用与原服务器相同的系统用户和 `CODEX_HOME`。
-
-### 停止、启动与重启
-
-```bash
-codex-auto-continue app-server daemon stop
-codex-auto-continue app-server daemon start
-# 重启当前后台服务版本
-codex-auto-continue app-server daemon restart
-```
-
-停止或重启会中断正在执行的任务，并结束当前自动等待。等待时仅想退出 TUI，请在输入框为空时按 Ctrl+C。
-
 ### 将后台服务器切换到新构建
 
-安装新构建后，执行以下命令更新后台服务；仅替换前端或执行 `restart` 不会更新后台服务版本。
+安装完整程序包后，执行以下命令更新后台服务；仅替换前端或执行 `restart` 不会更新后台服务版本。请使用与原服务相同的系统用户和 `CODEX_HOME`。
 
 ```bash
 codex-auto-continue app-server daemon update --from-cli --yes
