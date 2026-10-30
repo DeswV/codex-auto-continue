@@ -224,6 +224,41 @@ strip ~/.local/bin/codex-auto-continue
 
 复制到其他机器时，需要匹配操作系统、CPU 架构和运行库。当前 Linux x86_64 构建依赖 glibc 和 OpenSSL 3，可使用 `ldd` 检查目标机器上的缺失依赖；它不能直接运行在 macOS、Windows 或 ARM64 上，这些平台需要另行构建。
 
+## 管理后台服务器
+
+以下命令使用安装后的自定义程序名 `codex-auto-continue`；如果尚未安装，可在 `codex-rs` 目录中改用 `./target/release/codex`，开发构建则使用 `./target/debug/codex`。请使用与原服务器相同的系统用户和 `CODEX_HOME`。
+
+### 停止、启动与重启
+
+```bash
+codex-auto-continue app-server daemon stop
+codex-auto-continue app-server daemon start
+```
+
+只需重启当前后台服务版本时，可直接执行：
+
+```bash
+codex-auto-continue app-server daemon restart
+```
+
+停止或重启会中断服务器上正在执行的工作，并结束内存中的自动等待倒计时；该倒计时不会跨服务器重启恢复。Ctrl+B 退出等待中的 TUI 不会停止后台服务器。
+
+### 将后台服务器切换到新构建
+
+后台服务器使用单独保存的程序副本。替换前端二进制或执行 `restart` 不会自动将该副本替换为新构建。更新本 fork 并重新构建后，在 `codex-rs` 目录执行：
+
+```bash
+./target/release/codex app-server daemon update --from-cli --yes
+./target/release/codex app-server daemon start
+./target/release/codex app-server daemon version
+```
+
+开发构建请将 `release` 替换为 `debug`。也可以用已安装的新版本 `codex-auto-continue` 执行这些子命令。
+
+`update --from-cli --yes` 会复制并固定为当前 CLI 的程序包；如果后台服务器正在运行，会自动重启。随后 `start` 确保服务已启动，`version` 输出本地 CLI、已安装后台服务及运行中服务的版本信息。首次使用、尚未安装后台服务时，先执行一次 `app-server daemon start`。
+
+自定义版本应保留 `--from-cli`；不带该参数的 `daemon update` 会切回官方生产版本更新。上述操作管理后台程序及其状态，不修改现有 `config.toml` 或登录凭据。
+
 ## 许可证
 
 本项目沿用 [Apache-2.0 License](LICENSE)。更多实现行为见 [auto-continue 文档](docs/auto-continue.md)。
