@@ -96,7 +96,7 @@ impl ChatWidget {
         key_event: KeyEvent,
         activation_key: Option<crate::key_hint::KeyBinding>,
     ) -> KeyEventAction {
-        if self.handle_auto_retry_detach_key(key_event) {
+        if self.handle_auto_retry_exit_key(key_event) {
             return KeyEventAction::None;
         }
         if key_event.kind != KeyEventKind::Release {

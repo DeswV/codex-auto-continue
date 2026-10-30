@@ -734,3 +734,38 @@ async fn daemon_ctrl_c_during_mcp_startup_does_not_show_background_exit_menu() -
     assert!(app_event_rx.try_recv().is_err());
     Ok(())
 }
+
+#[tokio::test]
+async fn auto_retry_ctrl_c_exits_daemon_tui_without_cancelling_wait() -> Result<()> {
+    for through_chord_router in [true, false] {
+        let (mut app, mut events, mut operations) = make_test_app_with_channels().await;
+        let thread_id = prepare_local_daemon_thread(&mut app)?;
+        let (mut app_server, mut tui) =
+            prepare_background_exit_test(&app, &mut events, &mut operations).await?;
+        app.chat_widget.handle_server_notification(
+            ServerNotification::AutoRetry(codex_app_server_protocol::AutoRetryNotification {
+                thread_id: thread_id.to_string(),
+                turn_id: "failed-turn".into(),
+                retry_at: Some(chrono::Utc::now().timestamp_millis() + 120_000),
+                reason: "5h usage limit reached".into(),
+            }),
+            None,
+        );
+        while events.try_recv().is_ok() {}
+        let key = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        if through_chord_router {
+            assert_eq!(app.route_key_chord_event(&mut tui, key), None);
+        } else {
+            app.handle_key_event(&mut tui, &mut app_server, key).await;
+        }
+        assert!(matches!(
+            events.try_recv(),
+            Ok(AppEvent::Exit(ExitMode::Immediate))
+        ));
+        assert!(events.try_recv().is_err());
+        assert!(operations.try_recv().is_err());
+        let rendered = render_bottom_popup(&app.chat_widget, 200);
+        assert!(rendered.contains("5h usage limit reached"), "{rendered}");
+    }
+    Ok(())
+}

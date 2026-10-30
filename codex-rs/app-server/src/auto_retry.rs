@@ -151,7 +151,12 @@ impl AutoRetry {
                     let Some(reset) = self.reset.or_else(|| parse_reset(&message)) else {
                         return;
                     };
-                    Duration::from_secs((reset - chrono::Utc::now().timestamp()).max(1) as u64)
+                    Duration::from_millis(
+                        (reset
+                            .saturating_mul(1000)
+                            .saturating_sub(chrono::Utc::now().timestamp_millis()))
+                        .max(0) as u64,
+                    ) + Duration::from_secs(1)
                 } else {
                     return;
                 };
@@ -488,7 +493,20 @@ mod tests {
             }),
         );
         assert!(state.is_pending());
-        assert!(state.pending.as_ref().unwrap().deadline > Instant::now());
+        let pending = state.pending.as_ref().unwrap();
+        assert!(pending.retry_at >= state.reset.unwrap() * 1000 + 1000);
+        assert!(pending.deadline > Instant::now());
+    }
+
+    #[test]
+    fn past_quota_reset_still_waits_one_second() {
+        let mut state = AutoRetry {
+            reset: Some(chrono::Utc::now().timestamp() - 60),
+            ..Default::default()
+        };
+        state.observe("failed", &error("usage limit reached"));
+        let pending = state.pending.as_ref().unwrap();
+        assert_eq!(pending.deadline - pending.started, Duration::from_secs(1));
     }
 
     #[test]

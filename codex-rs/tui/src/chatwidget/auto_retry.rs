@@ -7,10 +7,11 @@ pub(super) struct AutoRetry {
     pub(super) pending: Option<codex_app_server_protocol::AutoRetryNotification>,
 }
 impl ChatWidget {
-    pub(crate) fn handle_auto_retry_detach_key(&mut self, key: KeyEvent) -> bool {
+    pub(crate) fn handle_auto_retry_exit_key(&mut self, key: KeyEvent) -> bool {
         if self.auto_retry.pending.is_some()
+            && self.bottom_pane.composer_is_empty()
             && key.kind != KeyEventKind::Release
-            && key.code == KeyCode::Char('b')
+            && key.code == KeyCode::Char('c')
             && key.modifiers == KeyModifiers::CONTROL
         {
             self.app_event_tx
@@ -63,7 +64,7 @@ impl ChatWidget {
         let seconds =
             ((p.retry_at.unwrap_or_default() - chrono::Utc::now().timestamp_millis()).max(0) + 999)
                 / 1000;
-        self.bottom_pane.set_placeholder_text(format!("{}. Automatically continuing in {} h {} m {} s. Type to cancel; Ctrl+B to leave running in background.", p.reason, seconds / 3600, seconds / 60 % 60, seconds % 60));
+        self.bottom_pane.set_placeholder_text(format!("{}. Automatically continuing in {} h {} m {} s. Type to cancel; Ctrl+C to leave running in background.", p.reason, seconds / 3600, seconds / 60 % 60, seconds % 60));
         self.frame_requester
             .schedule_frame_in(std::time::Duration::from_millis(100));
     }
@@ -93,15 +94,15 @@ mod tests {
         widget.tick_auto_retry();
         let rendered = crate::chatwidget::tests::render_bottom_popup(&widget, 200);
         assert!(rendered.contains("5h usage limit reached"), "{rendered}");
-        assert!(rendered.contains("Ctrl+B"), "{rendered}");
+        assert!(rendered.contains("Ctrl+C"), "{rendered}");
         assert!(widget.auto_retry.pending.is_some());
     }
     #[tokio::test]
-    async fn ctrl_b_detaches_without_cancelling_server_wait() {
+    async fn ctrl_c_detaches_without_cancelling_server_wait() {
         let (mut widget, _, mut events, _) = make_chatwidget_manual_with_sender().await;
         widget.on_auto_retry(notification());
         while events.try_recv().is_ok() {}
-        widget.handle_key_event(KeyEvent::new(KeyCode::Char('b'), KeyModifiers::CONTROL));
+        widget.handle_key_event(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
         assert!(widget.auto_retry.pending.is_some());
         assert!(matches!(
             events.try_recv(),
@@ -111,6 +112,21 @@ mod tests {
             assert!(!matches!(event, AppEvent::CancelAutoRetry { .. }));
         }
     }
+    #[tokio::test]
+    async fn ctrl_b_no_longer_detaches_and_cancels_wait_like_other_input() {
+        let (mut widget, _, mut events, _) = make_chatwidget_manual_with_sender().await;
+        widget.on_auto_retry(notification());
+        while events.try_recv().is_ok() {}
+        widget.handle_key_event(KeyEvent::new(KeyCode::Char('b'), KeyModifiers::CONTROL));
+        assert!(widget.auto_retry.pending.is_none());
+        let mut cancelled = false;
+        while let Ok(event) = events.try_recv() {
+            assert!(!matches!(event, AppEvent::Exit(_)));
+            cancelled |= matches!(event, AppEvent::CancelAutoRetry { .. });
+        }
+        assert!(cancelled);
+    }
+
     #[tokio::test]
     async fn paste_cancels_and_late_notification_cannot_restore_wait() {
         let (mut widget, _, _, _) = make_chatwidget_manual_with_sender().await;

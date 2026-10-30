@@ -69,7 +69,7 @@ impl App {
         tui: &mut tui::Tui,
         key_event: KeyEvent,
     ) -> Option<KeyEvent> {
-        if self.chat_widget.handle_auto_retry_detach_key(key_event) {
+        if self.chat_widget.handle_auto_retry_exit_key(key_event) {
             return None;
         }
         if key_event.kind != KeyEventKind::Release {
@@ -396,7 +396,7 @@ impl App {
         app_server: &mut AppServerSession,
         key_event: KeyEvent,
     ) {
-        if self.chat_widget.handle_auto_retry_detach_key(key_event) {
+        if self.chat_widget.handle_auto_retry_exit_key(key_event) {
             return;
         }
         let activation_key = self.routed_key_activation.take();
